@@ -1,6 +1,7 @@
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from LLM import main
 token:Final = "7642391641:AAG9pT9ZvxtBrf3JllHy9b7EvfKvO5_UO0M"
 bot_username:Final = "@bananana_bot_bot"
 
@@ -19,9 +20,12 @@ def handle_response(text:str)->str:
     text = text.lower()
     if "hello" in text:
         return "Hey there !"
-    if "llm chat" in text:
-        return "connecting you with an llm"
-    return "man stfu"
+    if "chat" in text:
+        print("Connecting you with the llm..")
+        result = main(text)
+
+
+    return "please use chat keyword in your message to query the llm."
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_type = update.message.chat.type

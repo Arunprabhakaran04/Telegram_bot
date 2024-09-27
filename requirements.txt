@@ -1,2 +1,3 @@
 langchain-huggingface
 python_dotenv
+bitsandbytes
