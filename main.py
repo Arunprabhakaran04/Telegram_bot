@@ -2,8 +2,16 @@ from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from LLM import main
-token:Final = "7642391641:AAG9pT9ZvxtBrf3JllHy9b7EvfKvO5_UO0M"
-bot_username:Final = "@bananana_bot_bot"
+from dotenv import load_dotenv
+import os
+load_dotenv()
+import requests
+from serpapi import GoogleSearch
+
+serpapi_key:Final = os.getenv("serpAPI_API_TOKEN")
+token:Final = os.getenv("bot_token")
+bot_username:Final = os.getenv("@bananana_bot_bot")
+
 
 #commands for the bot
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -13,7 +21,34 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Please type something so that i can respond.")
 
 async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_query = update.message.text.replace("/search", "").strip()
     await update.message.reply_text("Custom Command")
+    if not user_query:
+        await update.message.reply_text("Please provide a query. Example: /search How is the weather?")
+        return
+    params = {
+        "q": user_query,  # User query
+        "hl": "en",       # Language
+        "gl": "us",       # Country
+        "api_key": serpapi_key,
+    }
+    search = GoogleSearch(params)
+    result = search.get_dict()
+    if "organic_results" in result and len(result["organic_results"]) > 0:
+        top_result = result["organic_results"][0]
+        title = top_result.get("title", "No title found")
+        snippet = top_result.get("snippet", "No snippet found")
+        link = top_result.get("link", "#")
+
+        # Construct the response message
+        response_message = f"**Top result**: \n\n*{title}*\n{snippet}\n[Link]({link})"
+
+    else:
+        response_message = "Sorry, I couldn't find any results for your query."
+
+    # Send the result back to the user
+    await update.message.reply_text(response_message, parse_mode="Markdown")
+
 
 #respond to the bot -
 def handle_response(text:str)->str:
