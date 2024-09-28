@@ -1,3 +1,10 @@
 langchain-huggingface
+langchain
 python_dotenv
 bitsandbytes
+accelerate
+
+#diffusers
+#scipy
+
+pillow
