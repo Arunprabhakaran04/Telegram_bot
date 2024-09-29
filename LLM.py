@@ -46,7 +46,6 @@ def generate_text(query:str):
     result = llm.invoke(formatted_prompt)
 
     return result
-
 # if __name__ == "__main__":
 #     generate_text(query)
 
