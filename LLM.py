@@ -3,7 +3,7 @@ from llminstaller import model_installer
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain.prompts import ChatPromptTemplate
 # model creation :
-def main():
+def generate_text(query:str):
     load_dotenv()
     llm = HuggingFaceEndpoint(
         repo_id="mistralai/Mistral-7B-Instruct-v0.3", # using an instruct model which has been finetuned to perform well on instruction tasks.
@@ -11,7 +11,7 @@ def main():
         temperature=0.6, # setting the creativity of the model.
         max_new_tokens=512
     )
-    query = input("what do you want to ask the model ?")
+    # query = input("what do you want to ask the model ?")
 
     prompt = ChatPromptTemplate.from_messages(
     [
@@ -45,8 +45,8 @@ def main():
     formatted_prompt = prompt.format(query=query)
     result = llm.invoke(formatted_prompt)
 
-    print(result)
+    return result
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     generate_text(query)
 
