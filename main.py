@@ -1,14 +1,20 @@
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from LLM import main
 from dotenv import load_dotenv
+import asyncio
 import os
 load_dotenv()
 import requests
 from serpapi import GoogleSearch
+import random
+from datetime import datetime
+from LLM import generate_text
+from text_to_image_apimodel import generate_image
+
 
 serpapi_key:Final = os.getenv("serpAPI_API_TOKEN")
+SERP_API_URL = "https://serpapi.com/search"
 token:Final = os.getenv("bot_token")
 bot_username:Final = os.getenv("@bananana_bot_bot")
 
@@ -17,23 +23,88 @@ bot_username:Final = os.getenv("@bananana_bot_bot")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to the world of banana")
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Please type something so that i can respond.")
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Define each command with its description
+    help_text = (
+        "🤖 *Bot Commands*\n\n"
+        "/start - Start the bot or restart the conversation.\n"
+        "/help - Display this help message with available commands.\n"
+        "/custom - Trigger a custom interaction with tips and fun facts.\n"
+        "/ask [query] - Ask the bot any question, and query an llm for the answer.\n"
+        "/search [query] - Perform a search and get top search results from the web.\n\n"
+        "/generateimage [query] - generates an image from the user query.\n\n"
+        "💡 *How to use*\n"
+        "- Use `/ask` followed by your query to get answers from the web.\n"
+        "- Type `/custom` to receive tech tips, fun facts, and bot suggestions.\n\n"
+        "Feel free to explore the commands and let me know if you need help!"
+    )
+
+    # Send the help text message
+    await update.message.reply_text(help_text, parse_mode="Markdown")
+
+# Predefined list of tech-related tips or fun facts
+tips_and_facts = [
+    "Did you know? The first computer virus was created in 1983!",
+    "Tip: Regularly update your software to protect against vulnerabilities.",
+    "Fun fact: The first email ever sent was by Ray Tomlinson to himself in 1971.",
+    "Tip: Use version control (like Git) for better collaboration and code management.",
+    "Did you know? The first 1GB hard drive, released in 1980, weighed over 500 pounds!",
+]
+
+# Enhanced Custom Command
 async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user.first_name  # Get the user's first name
+    current_time = datetime.now().strftime("%H:%M")  # Get the current time
+
+    # Dynamic greeting based on time of day
+    if 5 <= datetime.now().hour < 12:
+        greeting = "Good morning"
+    elif 12 <= datetime.now().hour < 18:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
+
+    # Pick a random tip or fun fact
+    tip_or_fact = random.choice(tips_and_facts)
+
+    # Construct the response message
+    response_message = (
+        f"{greeting}, {user}!\n\n"
+        f"🔍 You triggered a custom command at {current_time}.\n"
+        f"💡 Here's something for you: {tip_or_fact}\n\n"
+        f"You can also try these commands:\n"
+        f"/ask [query] - Ask me anything!\n"
+        f"/search [query] - Ask me anything you want to search the web!\n"
+        f"/generateimage [query] - Give me a description and I will generate an image out of it.!\n"
+        f"/help - Get help using the bot.\n"
+        f"/start - Restart the bot."
+    )
+
+    # Send the response message
+    await update.message.reply_text(response_message)
+
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Extract user query by removing "/ask"
     user_query = update.message.text.replace("/search", "").strip()
-    await update.message.reply_text("Custom Command")
+
     if not user_query:
-        await update.message.reply_text("Please provide a query. Example: /search How is the weather?")
+        await update.message.reply_text("Please provide a query. Example: /search What is AI?")
         return
+
+    # Define parameters for SerpAPI search
     params = {
         "q": user_query,  # User query
-        "hl": "en",       # Language
-        "gl": "us",       # Country
+        "hl": "en",  # Language
+        "gl": "us",  # Country
         "api_key": serpapi_key,
     }
+
+    # Perform search using SerpAPI
     search = GoogleSearch(params)
     result = search.get_dict()
+
+    # Check if there are organic results
     if "organic_results" in result and len(result["organic_results"]) > 0:
         top_result = result["organic_results"][0]
         title = top_result.get("title", "No title found")
@@ -42,7 +113,6 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Construct the response message
         response_message = f"**Top result**: \n\n*{title}*\n{snippet}\n[Link]({link})"
-
     else:
         response_message = "Sorry, I couldn't find any results for your query."
 
@@ -50,17 +120,60 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response_message, parse_mode="Markdown")
 
 
+async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Get the user query after /ask
+    user_query = update.message.text.replace("/ask", "").strip()
+
+    if not user_query:
+        await update.message.reply_text("Please provide a query to ask. Example: /search What is AI?")
+        return
+
+    try:
+        # Call the generate_text function from the LLM module with the user's query
+        response = generate_text(user_query)
+
+        # Display the result to the user
+        await update.message.reply_text(f"Answer: {response}")
+
+    except Exception as e:
+        # If any error occurs, display a fallback message
+        await update.message.reply_text(f"An error occurred: {str(e)}")
+
+
+async def generateimage_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_prompt = " ".join(context.args)
+
+    if not user_prompt:
+        await update.message.reply_text(
+            "Please provide a prompt for image generation. Example: /generateimage A sunset over mountains")
+        return
+
+    try:
+        # Call the diffusion model to generate the image
+        image_path = generate_image(
+            user_prompt)  # The generate_image function now accepts the prompt and returns the image path
+
+        if image_path and os.path.exists(image_path):
+            # Send the image back to the user
+            await update.message.reply_photo(photo=open(image_path, 'rb'))
+        else:
+            await update.message.reply_text("Sorry, I couldn't generate the image.")
+
+    except Exception as e:
+        # Handle any errors in image generation
+        await update.message.reply_text(f"Error generating image: {str(e)}")
+
 #respond to the bot -
 def handle_response(text:str)->str:
     text = text.lower()
     if "hello" in text:
         return "Hey there !"
-    if "chat" in text:
+    elif "chat" in text:
         print("Connecting you with the llm..")
-        result = main(text)
+        # result = main(text)
 
 
-    return "please use chat keyword in your message to query the llm."
+    return "Consider using only the list of commands available."
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_type = update.message.chat.type
@@ -84,17 +197,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'update{update} caused the following error {context.error}')
 
-
 if __name__ == "__main__":
     print("starting bot ..")
     app = Application.builder().token(token).build()
+
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("custom", custom_command))
+    app.add_handler(CommandHandler("search", search_command))
+    app.add_handler(CommandHandler("ask", ask_command))
+    app.add_handler(CommandHandler("generateimage", generateimage_command))
 
     app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
     app.add_error_handler(error)
     print("polling the bot")
     app.run_polling(poll_interval=3)
-
