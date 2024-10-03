@@ -3,8 +3,7 @@ langchain
 python_dotenv
 bitsandbytes
 accelerate
-
-#diffusers
-#scipy
-
 pillow
+python-telegram-bot
+transformers
+requests
